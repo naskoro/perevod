@@ -1,0 +1,72 @@
+#!/usr/bin/env python
+import json
+import signal
+from urllib.parse import urlencode
+from urllib.request import build_opener
+
+from gi.repository import Gtk, Gdk
+
+
+def trans():
+    tray = Gtk.StatusIcon()
+    tray.set_from_stock(Gtk.STOCK_MEDIA_STOP)
+    tray.connect('activate', lambda w: fetch())
+    tray.connect('popup-menu', lambda i, b, t: Gtk.main_quit())
+
+    signal.signal(signal.SIGINT, lambda s, f: Gtk.main_quit())
+    Gtk.main()
+
+
+def call_google(text, to):
+    url = 'http://translate.google.ru/translate_a/t'
+    params = {
+        'client': 'x',
+        'sl': 'auto',
+        'tl': to,
+        'io': 'utf8',
+        'oe': 'utf8',
+        'text': text
+    }
+
+    opener = build_opener()
+    opener.addheaders = [('User-agent', 'Mozilla/5.0')]
+    f = opener.open('%s?%s' % (url, urlencode(params)))
+    data = json.loads(f.read().decode())
+    text = '\n'.join(r['trans'] for r in data['sentences'])
+    return data['src'], text
+
+
+def show(text):
+    textview = Gtk.TextView()
+    textbuffer = textview.get_buffer()
+    textbuffer.set_text(text)
+    textview.set_wrap_mode(Gtk.WrapMode.WORD)
+    textview.set_justification(Gtk.Justification.FILL)
+
+    win = Gtk.Window(
+        title='Tider', resizable=True,
+        skip_pager_hint=True, skip_taskbar_hint=True,
+        type=Gtk.WindowType.POPUP
+    )
+    win.resize(300, 200)
+    win.set_keep_above(True)
+    win.add(textview)
+
+    win.connect('delete_event', lambda w, e: Gtk.main_quit())
+    win.show_all()
+
+
+def fetch():
+    clip = Gtk.Clipboard.get(Gdk.SELECTION_PRIMARY)
+    text = clip.wait_for_text()
+    if not text.strip():
+        return
+
+    for lang in ['ru', 'en']:
+        src_lang, result = call_google(text, to=lang)
+        if src_lang != lang:
+            show(result)
+            return
+
+if __name__ == '__main__':
+    trans()
