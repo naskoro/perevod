@@ -10,7 +10,7 @@ with open('README.rst', 'br') as f:
     desc = f.read().decode()
 
 setup(
-    name='tider',
+    name='perevod',
     description='Lightweight GTK+ translation tool',
     long_description=desc,
     license='BSD',
