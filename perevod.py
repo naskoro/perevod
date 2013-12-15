@@ -1,9 +1,11 @@
 import argparse
+import html
 import json
 import os
 import signal
 import socket
 import sys
+from urllib.error import URLError
 from urllib.parse import urlencode
 from urllib.request import build_opener
 from threading import Thread
@@ -24,10 +26,31 @@ def perevod():
         else:
             os.remove(SOCK)
 
+    start = Gtk.ImageMenuItem.new_from_stock(Gtk.STOCK_MEDIA_PLAY, None)
+    start.set_label('Translate')
+    start.connect('activate', lambda w: fetch())
+
+    stop = Gtk.ImageMenuItem.new_from_stock(Gtk.STOCK_MEDIA_STOP, None)
+    stop.set_label('Hide translation window')
+    stop.connect('activate', lambda w: hide())
+
+    separator = Gtk.SeparatorMenuItem()
+
+    quit = Gtk.ImageMenuItem.new_from_stock(Gtk.STOCK_QUIT, None)
+    quit.connect('activate', lambda w: main_quit())
+
+    menu = Gtk.Menu()
+    for i in [start, stop, separator, quit]:
+        menu.append(i)
+
+    menu.show_all()
+
     tray = Gtk.StatusIcon()
     tray.set_from_stock(Gtk.STOCK_SELECT_FONT)
     tray.connect('activate', lambda w: fetch())
-    tray.connect('popup-menu', lambda i, b, t: main_quit())
+    tray.connect('popup-menu', lambda icon, button, time: (
+        menu.popup(None, None, icon.position_menu, icon, button, time)
+    ))
 
     server = Thread(target=run_server)
     server.daemon = True
@@ -54,39 +77,39 @@ def fetch():
     clip = Gtk.Clipboard.get(Gdk.SELECTION_PRIMARY)
     text = clip.wait_for_text()
     if not (text and text.strip()):
+        show('<b>WARN</b>: Please select the text first')
         return
 
-    text = text.replace('\t', ' ').replace('\r', ' ')
+        text = text.replace('\t', ' ').replace('\r', ' ')
 
     for lang in ['ru', 'en']:
-        src_lang, result = call_google(text, to=lang)
-        if src_lang != lang:
-            show(result)
+        ok, result = call_google(text, to=lang)
+        if ok and result['src_lang'] != lang:
+            show(result['text'])
             return
+        else:
+            show('<b>ERROR</b>%s' % html.escape(str(result)))
 
 
 def show(text):
     if not hasattr(show, 'win'):
-        view = Gtk.TextView(left_margin=10, right_margin=10)
-        view.set_wrap_mode(Gtk.WrapMode.WORD)
-        view.set_justification(Gtk.Justification.FILL)
-        view.connect('button-press-event', lambda w, e: win.hide())
+        view = Gtk.Label('', wrap=True, selectable=True)
 
         win = Gtk.Window(
-            title='Tider', resizable=True, decorated=True,
+            title='Tider', decorated=True,
             skip_pager_hint=True, skip_taskbar_hint=True,
             type=Gtk.WindowType.POPUP
         )
         win.set_keep_above(True)
         win.add(view)
         win.move(950, 30)
-        win.set_trans = lambda text: view.get_buffer().set_text(text)
+        win.set_trans = lambda text: view.set_markup(text)
 
         show.win = win
 
     win = show.win
     win.set_trans(text)
-    win.resize(400, 100)
+    win.resize(400, 50)
     win.show_all()
 
 
@@ -108,10 +131,13 @@ def call_google(text, to):
 
     opener = build_opener()
     opener.addheaders = [('User-agent', 'Mozilla/5.0')]
-    f = opener.open('%s?%s' % (url, urlencode(params)))
+    try:
+        f = opener.open('%s?%s' % (url, urlencode(params)))
+    except URLError as e:
+        return False, e
     data = json.loads(f.read().decode())
     text = '\n'.join(r['trans'] for r in data['sentences'])
-    return data['src'], text
+    return True, {'src_lang': data['src'], 'text': text}
 
 
 def run_server():
