@@ -138,6 +138,7 @@ run_server.actions = {
     'run': lambda: fetch(),
     'hide': lambda: hide(),
     'reload': lambda: main_quit(reload=True),
+    'quit': lambda: main_quit(),
     'ping': None
 }
 
