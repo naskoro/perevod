@@ -41,7 +41,7 @@ def show(text):
         view = Gtk.TextView(left_margin=10, right_margin=10)
         view.set_wrap_mode(Gtk.WrapMode.WORD)
         view.set_justification(Gtk.Justification.FILL)
-        view.connect('button-press-event', lambda w, e: win.destroy())
+        view.connect('button-press-event', lambda w, e: win.hide())
 
         win = Gtk.Window(
             title='Tider', resizable=True, decorated=True,
@@ -57,18 +57,17 @@ def show(text):
 
     win = show.win
     win.set_trans(text)
-    win.resize(400, 200)
+    win.resize(400, 100)
     win.show_all()
 
 
 def fetch():
     clip = Gtk.Clipboard.get(Gdk.SELECTION_PRIMARY)
     text = clip.wait_for_text()
-    if not text.strip():
+    if not (text and text.strip()):
         return
 
     text = text.replace('\t', ' ').replace('\r', ' ')
-    print('%r' % text)
 
     for lang in ['ru', 'en']:
         src_lang, result = call_google(text, to=lang)
