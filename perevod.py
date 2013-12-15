@@ -10,6 +10,8 @@ from threading import Thread
 
 from gi.repository import Gtk, Gdk, GObject
 
+GObject.threads_init()
+
 SOCK = '/tmp/perevod.pid'
 RELOAD = 100
 
@@ -88,6 +90,11 @@ def show(text):
     win.show_all()
 
 
+def hide():
+    if hasattr(show, 'win'):
+        show.win.hide()
+
+
 def call_google(text, to):
     url = 'http://translate.google.ru/translate_a/t'
     params = {
@@ -129,6 +136,7 @@ def run_server():
 
 run_server.actions = {
     'run': lambda: fetch(),
+    'hide': lambda: hide(),
     'reload': lambda: main_quit(reload=True),
     'ping': None
 }
