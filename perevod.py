@@ -202,7 +202,7 @@ def get_actions():
     return [m[4:] for m in dir(Gui) if m.startswith('pub_')]
 
 
-def get_config(target='default'):
+def get_config(target=None):
     app_dirs = [
         os.path.join(os.path.dirname(__file__), 'var'),
         os.path.join(os.path.expanduser('~'), '.config', 'perevod')
@@ -221,7 +221,7 @@ def get_config(target='default'):
 
     loader = SourceFileLoader('config', config_path)
     config = loader.load_module('config')
-    config = config.get(app_dir, target=target)
+    config = config.get(app_dir, target=target or 'default')
     return config
 
 
@@ -245,7 +245,7 @@ def process_args(args):
         .exe(lambda a: print(DEFAULT_CONFIG))
 
     args = parser.parse_args(args)
-    config = get_config()
+    config = get_config(args.target)
     sockfile = config['socket']
     if not hasattr(args, 'cmd'):
         if os.path.exists(sockfile):
