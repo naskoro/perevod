@@ -18,83 +18,38 @@ SOCK = '/tmp/perevod.pid'
 RELOAD = 100
 
 
-def perevod():
-    if os.path.exists(SOCK):
-        if send_action('ping') == 'pong':
-            print('Another `perevod` instance already run.')
-            raise SystemExit(1)
-        else:
-            os.remove(SOCK)
+class Gui:
+    def __init__(self, sockfile):
+        # Menu
+        start = Gtk.ImageMenuItem.new_from_stock(Gtk.STOCK_MEDIA_PLAY, None)
+        start.set_label('Translate')
+        start.connect('activate', lambda w: self.pub_fetch())
 
-    start = Gtk.ImageMenuItem.new_from_stock(Gtk.STOCK_MEDIA_PLAY, None)
-    start.set_label('Translate')
-    start.connect('activate', lambda w: fetch())
+        stop = Gtk.ImageMenuItem.new_from_stock(Gtk.STOCK_MEDIA_STOP, None)
+        stop.set_label('Hide translation window')
+        stop.connect('activate', lambda w: self.pub_hide())
 
-    stop = Gtk.ImageMenuItem.new_from_stock(Gtk.STOCK_MEDIA_STOP, None)
-    stop.set_label('Hide translation window')
-    stop.connect('activate', lambda w: hide())
+        separator = Gtk.SeparatorMenuItem()
 
-    separator = Gtk.SeparatorMenuItem()
+        quit = Gtk.ImageMenuItem.new_from_stock(Gtk.STOCK_QUIT, None)
+        quit.connect('activate', lambda w: self.quit())
 
-    quit = Gtk.ImageMenuItem.new_from_stock(Gtk.STOCK_QUIT, None)
-    quit.connect('activate', lambda w: main_quit())
+        menu = Gtk.Menu()
+        for i in [start, stop, separator, quit]:
+            menu.append(i)
 
-    menu = Gtk.Menu()
-    for i in [start, stop, separator, quit]:
-        menu.append(i)
+        menu.show_all()
 
-    menu.show_all()
+        # Tray
+        tray = Gtk.StatusIcon()
+        tray.set_from_stock(Gtk.STOCK_SELECT_FONT)
+        tray.connect('activate', lambda w: self.pub_fetch())
+        tray.connect('popup-menu', lambda icon, button, time: (
+            menu.popup(None, None, icon.position_menu, icon, button, time)
+        ))
 
-    tray = Gtk.StatusIcon()
-    tray.set_from_stock(Gtk.STOCK_SELECT_FONT)
-    tray.connect('activate', lambda w: fetch())
-    tray.connect('popup-menu', lambda icon, button, time: (
-        menu.popup(None, None, icon.position_menu, icon, button, time)
-    ))
-
-    server = Thread(target=run_server)
-    server.daemon = True
-    server.start()
-
-    signal.signal(signal.SIGINT, lambda s, f: main_quit())
-    try:
-        Gtk.main()
-    finally:
-        if hasattr(main_quit, 'reload'):
-            print('Perevod reloading...')
-            raise SystemExit(RELOAD)
-
-
-def main_quit(reload=False):
-    if reload:
-        main_quit.reload = True
-
-    os.remove(SOCK)
-    Gtk.main_quit()
-
-
-def fetch():
-    clip = Gtk.Clipboard.get(Gdk.SELECTION_PRIMARY)
-    text = clip.wait_for_text()
-    if not (text and text.strip()):
-        show('<b>WARN</b>: Please select the text first')
-        return
-
-        text = text.replace('\t', ' ').replace('\r', ' ')
-
-    for lang in ['ru', 'en']:
-        ok, result = call_google(text, to=lang)
-        if ok and result['src_lang'] != lang:
-            show(result['text'])
-            return
-        else:
-            show('<b>ERROR</b>%s' % html.escape(str(result)))
-
-
-def show(text):
-    if not hasattr(show, 'win'):
+        # Window
         view = Gtk.Label('', wrap=True, selectable=True)
-
         win = Gtk.Window(
             title='Tider', decorated=True,
             skip_pager_hint=True, skip_taskbar_hint=True,
@@ -105,17 +60,61 @@ def show(text):
         win.move(950, 30)
         win.set_trans = lambda text: view.set_markup(text)
 
-        show.win = win
+        # Bind to object
+        self.win = win
+        self.menu = menu
+        self.view = view
+        self.reload = False
 
-    win = show.win
-    win.set_trans(text)
-    win.resize(400, 50)
-    win.show_all()
+        # Start GTK loop
+        server = Thread(target=serve, args=(sockfile, self))
+        server.daemon = True
+        server.start()
 
+        signal.signal(signal.SIGINT, lambda s, f: self.quit)
+        try:
+            Gtk.main()
+        finally:
+            if self.reload:
+                print('Perevod reloading...')
+                raise SystemExit(RELOAD)
 
-def hide():
-    if hasattr(show, 'win'):
-        show.win.hide()
+    def show(self, text):
+        self.view.set_markup(text)
+        self.win.resize(400, 50)
+        self.win.show_all()
+
+    def pub_quit(self, reload=False):
+        if reload:
+            self.reload = True
+
+        Gtk.main_quit()
+
+    def pub_reload(self):
+        self.pub_quit(reload=True)
+
+    def pub_fetch(self):
+        clip = Gtk.Clipboard.get(Gdk.SELECTION_PRIMARY)
+        text = clip.wait_for_text()
+        if not (text and text.strip()):
+            self.show('<b>WARN</b>: Please select the text first')
+            return
+
+            text = text.replace('\t', ' ').replace('\r', ' ')
+
+        for lang in ['ru', 'en']:
+            ok, result = call_google(text, to=lang)
+            if ok and result['src_lang'] != lang:
+                self.show(result['text'])
+                return
+            else:
+                self.show('<b>ERROR</b>%s' % html.escape(str(result)))
+
+    def pub_hide(self):
+        self.win.hide()
+
+    def pub_ping(self):
+        pass
 
 
 def call_google(text, to):
@@ -140,9 +139,9 @@ def call_google(text, to):
     return True, {'src_lang': data['src'], 'text': text}
 
 
-def run_server():
+def serve(sockfile, gui):
     s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    s.bind(SOCK)
+    s.bind(sockfile)
     s.listen(1)
 
     while True:
@@ -152,27 +151,16 @@ def run_server():
             if not data:
                 break
             action = data.decode()
-            if action == 'ping':
-                conn.send('pong'.encode())
-            else:
-                action = run_server.actions.get(data.decode())
-                GObject.idle_add(action)
-                conn.send('ok'.encode())
+            action = getattr(gui, 'pub_' + action)
+            GObject.idle_add(action)
+            conn.send('ok'.encode())
     conn.close()
 
-run_server.actions = {
-    'run': lambda: fetch(),
-    'hide': lambda: hide(),
-    'reload': lambda: main_quit(reload=True),
-    'quit': lambda: main_quit(),
-    'ping': None
-}
 
-
-def send_action(action):
+def send_action(sockfile, action):
     s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     try:
-        s.connect(SOCK)
+        s.connect(sockfile)
     except socket.error:
         return None
     s.send(action.encode())
@@ -181,6 +169,10 @@ def send_action(action):
     if data:
         return data.decode()
     return True
+
+
+def get_actions():
+    return [m[4:] for m in dir(Gui) if m.startswith('pub_')]
 
 
 def process_args(args):
@@ -195,22 +187,31 @@ def process_args(args):
         return p
 
     cmd('call', help='call a specific action')\
-        .arg('name', choices=run_server.actions.keys(), help='choice action')\
-        .exe(lambda a: print(send_action(a.name)))
+        .arg('name', choices=get_actions(), help='select action')\
+        .exe(lambda a: print(send_action(sockfile, a.name)))
 
     args = parser.parse_args(args)
-    if hasattr(args, 'exe'):
+    sockfile = SOCK
+    if not hasattr(args, 'name'):
+        if os.path.exists(sockfile):
+            if send_action(sockfile, 'ping') == 'ok':
+                print('Another `perevod` instance already run.')
+                raise SystemExit(1)
+            else:
+                os.remove(sockfile)
+
+        Gui(sockfile)
+
+    elif hasattr(args, 'exe'):
         args.exe(args)
+
     else:
         raise ValueError('Wrong subcommand')
 
 
-def main(args=None):
+def perevod(args=None):
     if args is None:
         args = sys.argv[1:]
-
-    if not args:
-        return perevod()
 
     try:
         process_args(args)
@@ -219,4 +220,4 @@ def main(args=None):
 
 
 if __name__ == '__main__':
-    main()
+    perevod()
