@@ -76,6 +76,7 @@ class Gui:
         ))
 
         win = Gtk.Window(
+            title='Translate selection',
             skip_taskbar_hint=True, skip_pager_hint=True,
             type_hint=Gdk.WindowTypeHint.DIALOG,
             has_resize_grip=False
