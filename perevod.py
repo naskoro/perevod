@@ -67,7 +67,7 @@ class Gui:
         self.reload = False
 
         ### Start GTK loop
-        server = Thread(target=serve, args=(sockfile, self))
+        server = Thread(target=self.serve, args=(sockfile,))
         server.daemon = True
         server.start()
 
@@ -80,6 +80,23 @@ class Gui:
                 raise SystemExit(RELOAD)
             else:
                 print('Perevod closed.')
+
+    def serve(self, sockfile):
+        s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        s.bind(sockfile)
+        s.listen(1)
+
+        while True:
+            conn, addr = s.accept()
+            while True:
+                data = conn.recv(1024)
+                if not data:
+                    break
+                action = data.decode()
+                action = getattr(self, 'pub_' + action)
+                GObject.idle_add(action)
+                conn.send('ok'.encode())
+        conn.close()
 
     def show(self, text):
         self.view.set_markup(text)
@@ -137,24 +154,6 @@ def call_google(text, to):
     data = json.loads(f.read().decode())
     text = '\n'.join(r['trans'] for r in data['sentences'])
     return True, {'src_lang': data['src'], 'text': text}
-
-
-def serve(sockfile, gui):
-    s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    s.bind(sockfile)
-    s.listen(1)
-
-    while True:
-        conn, addr = s.accept()
-        while True:
-            data = conn.recv(1024)
-            if not data:
-                break
-            action = data.decode()
-            action = getattr(gui, 'pub_' + action)
-            GObject.idle_add(action)
-            conn.send('ok'.encode())
-    conn.close()
 
 
 def send_action(sockfile, action):
