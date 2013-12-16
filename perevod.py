@@ -17,9 +17,9 @@ GObject.threads_init()
 
 RELOAD = 100
 DEFAULT_CONFIG = '''
-def get(path, target='default'):
+def get(conf_dir):
     c = {}
-    c['socket'] = '%s/%s.sock' % (path, target)
+    c['socket'] = '%s/default.sock' % (conf_dir)
     c['win_handler'] = win_handler
     return c
 
@@ -202,32 +202,31 @@ def get_actions():
     return [m[4:] for m in dir(Gui) if m.startswith('pub_')]
 
 
-def get_config(target=None):
-    app_dirs = [
+def get_config():
+    conf_dirs = [
         os.path.join(os.path.dirname(__file__), 'var'),
         os.path.join(os.path.expanduser('~'), '.config', 'perevod')
     ]
-    app_dir = [p for p in app_dirs if os.path.exists(p)]
-    if app_dir:
-        app_dir = app_dir[0]
+    conf_dir = [p for p in conf_dirs if os.path.exists(p)]
+    if conf_dir:
+        conf_dir = conf_dir[0]
     else:
-        app_dir = app_dirs[-1]
-        os.mkdir(app_dir)
+        conf_dir = conf_dirs[-1]
+        os.mkdir(conf_dir)
 
-    config_path = os.path.join(app_dir, 'config.py')
-    if not os.path.exists(config_path):
-        with open(config_path, 'wb') as f:
+    conf_path = os.path.join(conf_dir, 'config.py')
+    if not os.path.exists(conf_path):
+        with open(conf_path, 'wb') as f:
             f.write(DEFAULT_CONFIG.encode())
 
-    loader = SourceFileLoader('config', config_path)
+    loader = SourceFileLoader('config', conf_path)
     config = loader.load_module('config')
-    config = config.get(app_dir, target=target or 'default')
+    config = config.get(conf_dir)
     return config
 
 
 def process_args(args):
     parser = argparse.ArgumentParser()
-    parser.add_argument('-t', '--target', help='target for config')
     cmds = parser.add_subparsers(title='commands')
 
     def cmd(name, **kw):
@@ -245,7 +244,7 @@ def process_args(args):
         .exe(lambda a: print(DEFAULT_CONFIG))
 
     args = parser.parse_args(args)
-    config = get_config(args.target)
+    config = get_config()
     sockfile = config['socket']
     if not hasattr(args, 'cmd'):
         if os.path.exists(sockfile):
