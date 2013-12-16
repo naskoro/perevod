@@ -20,7 +20,7 @@ RELOAD = 100
 
 class Gui:
     def __init__(self, sockfile):
-        # Menu
+        ### Menu
         start = Gtk.ImageMenuItem.new_from_stock(Gtk.STOCK_MEDIA_PLAY, None)
         start.set_label('Translate')
         start.connect('activate', lambda w: self.pub_fetch())
@@ -40,7 +40,7 @@ class Gui:
 
         menu.show_all()
 
-        # Tray
+        ### Tray
         tray = Gtk.StatusIcon()
         tray.set_from_stock(Gtk.STOCK_SELECT_FONT)
         tray.connect('activate', lambda w: self.pub_fetch())
@@ -48,7 +48,7 @@ class Gui:
             menu.popup(None, None, icon.position_menu, icon, button, time)
         ))
 
-        # Window
+        ### Window
         view = Gtk.Label('', wrap=True, selectable=True)
         win = Gtk.Window(
             title='Tider', decorated=True,
@@ -60,13 +60,13 @@ class Gui:
         win.move(950, 30)
         win.set_trans = lambda text: view.set_markup(text)
 
-        # Bind to object
+        ### Bind to object
         self.win = win
         self.menu = menu
         self.view = view
         self.reload = False
 
-        # Start GTK loop
+        ### Start GTK loop
         server = Thread(target=serve, args=(sockfile, self))
         server.daemon = True
         server.start()
@@ -78,20 +78,20 @@ class Gui:
             if self.reload:
                 print('Perevod reloading...')
                 raise SystemExit(RELOAD)
+            else:
+                print('Perevod closed.')
 
     def show(self, text):
         self.view.set_markup(text)
         self.win.resize(400, 50)
         self.win.show_all()
 
-    def pub_quit(self, reload=False):
-        if reload:
-            self.reload = True
-
+    def pub_quit(self):
         Gtk.main_quit()
 
     def pub_reload(self):
-        self.pub_quit(reload=True)
+        self.reload = True
+        self.pub_quit()
 
     def pub_fetch(self):
         clip = Gtk.Clipboard.get(Gdk.SELECTION_PRIMARY)
