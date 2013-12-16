@@ -5,21 +5,33 @@ import os
 import signal
 import socket
 import sys
+from importlib.machinery import SourceFileLoader
+from threading import Thread
 from urllib.error import URLError
 from urllib.parse import urlencode, quote
 from urllib.request import build_opener
-from threading import Thread
 
 from gi.repository import Gtk, Gdk, GObject
 
 GObject.threads_init()
 
-SOCK = '/tmp/perevod.pid'
 RELOAD = 100
+DEFAULT_CONFIG = '''
+def get(path, target='default'):
+    c = {}
+    c['socket'] = '%s/%s.sock' % (path, target)
+    c['win_handler'] = win_handler
+    return c
+
+
+def win_handler(win):
+    win.resize(400, 50)
+    win.move(win.get_screen().get_width() - 410, 30)
+'''.strip()
 
 
 class Gui:
-    def __init__(self, sockfile):
+    def __init__(self, config):
         ### Menu
         start = Gtk.ImageMenuItem.new_from_stock(Gtk.STOCK_MEDIA_PLAY, None)
         start.set_label('Translate')
@@ -66,27 +78,26 @@ class Gui:
         )
         win.set_keep_above(True)
         win.add(box)
-        win.move(950, 30)
 
         def show(text, url=None):
             if url:
                 link.set_uri(url)
             view.set_markup(text)
-            view.set_size_request(400, 1)
-            win.resize(400, 50)
-            win.move(950, 30)
+            config['win_handler'](win)
+            view.set_size_request(win.get_size()[0], 1)
             win.show_all()
 
         def hide():
             win.hide()
 
         ### Bind to object
+        self.config = config
+        self.reload = False
         self.hide = hide
         self.show = show
-        self.reload = False
 
         ### Start GTK loop
-        server = Thread(target=self.serve, args=(sockfile,))
+        server = Thread(target=self.serve, args=(config['socket'],))
         server.daemon = True
         server.start()
 
@@ -191,8 +202,32 @@ def get_actions():
     return [m[4:] for m in dir(Gui) if m.startswith('pub_')]
 
 
+def get_config(target='default'):
+    app_dirs = [
+        os.path.join(os.path.dirname(__file__), 'var'),
+        os.path.join(os.path.expanduser('~'), '.config', 'perevod')
+    ]
+    app_dir = [p for p in app_dirs if os.path.exists(p)]
+    if app_dir:
+        app_dir = app_dir[0]
+    else:
+        app_dir = app_dirs[-1]
+        os.mkdir(app_dir)
+
+    config_path = os.path.join(app_dir, 'config.py')
+    if not os.path.exists(config_path):
+        with open(config_path, 'wb') as f:
+            f.write(DEFAULT_CONFIG.encode())
+
+    loader = SourceFileLoader('config', config_path)
+    config = loader.load_module('config')
+    config = config.get(app_dir, target=target)
+    return config
+
+
 def process_args(args):
     parser = argparse.ArgumentParser()
+    parser.add_argument('-t', '--target', help='target for config')
     cmds = parser.add_subparsers(title='commands')
 
     def cmd(name, **kw):
@@ -206,9 +241,13 @@ def process_args(args):
         .arg('name', choices=get_actions(), help='select action')\
         .exe(lambda a: print(send_action(sockfile, a.name)))
 
+    cmd('config', help='print default config')\
+        .exe(lambda a: print(DEFAULT_CONFIG))
+
     args = parser.parse_args(args)
-    sockfile = SOCK
-    if not hasattr(args, 'name'):
+    config = get_config()
+    sockfile = config['socket']
+    if not hasattr(args, 'cmd'):
         if os.path.exists(sockfile):
             if send_action(sockfile, 'ping') == 'ok':
                 print('Another `perevod` instance already run.')
@@ -216,7 +255,7 @@ def process_args(args):
             else:
                 os.remove(sockfile)
 
-        Gui(sockfile)
+        Gui(config)
 
     elif hasattr(args, 'exe'):
         args.exe(args)
