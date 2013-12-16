@@ -71,10 +71,14 @@ class Gui:
         box = Gtk.VBox(spacing=0)
         box.pack_start(view, True, True, 5)
         box.pack_start(bbox, True, True, 5)
+        box.connect('key-press-event', lambda w, e: (
+            e.keyval == Gdk.KEY_Return and hide()
+        ))
 
         win = Gtk.Window(
-            skip_taskbar_hint=True, accept_focus=False,
-            type=Gtk.WindowType.POPUP
+            skip_taskbar_hint=True, skip_pager_hint=True,
+            type_hint=Gdk.WindowTypeHint.DIALOG,
+            has_resize_grip=False
         )
         win.set_keep_above(True)
         win.add(box)
