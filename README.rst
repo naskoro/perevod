@@ -1,5 +1,11 @@
-Lightweight GTK+ translation tool
----------------------------------
+Translate selection (lightweight GTK+)
+--------------------------------------
 **In development.**
 
-Translate selection via google.
+Support translate selection via google.
+
+Arch Linux
+==========
+::
+
+    $ yaourt -S perevod-git
