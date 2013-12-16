@@ -32,7 +32,7 @@ class Gui:
         separator = Gtk.SeparatorMenuItem()
 
         quit = Gtk.ImageMenuItem.new_from_stock(Gtk.STOCK_QUIT, None)
-        quit.connect('activate', lambda w: self.quit())
+        quit.connect('activate', lambda w: self.pub_quit())
 
         menu = Gtk.Menu()
         for i in [start, stop, separator, quit]:
@@ -49,21 +49,30 @@ class Gui:
         ))
 
         ### Window
-        view = Gtk.Label('', wrap=True, selectable=True)
-        win = Gtk.Window(
-            title='Tider', decorated=True,
-            skip_pager_hint=True, skip_taskbar_hint=True,
-            type=Gtk.WindowType.POPUP
-        )
-        win.set_keep_above(True)
-        win.add(view)
-        win.move(950, 30)
-        win.set_trans = lambda text: view.set_markup(text)
+        win = Gtk.Dialog(accept_focus=False)
+        view = Gtk.Label(wrap=True, selectable=True)
+        box = win.get_content_area()
+        box.add(view)
+        win.add_buttons(Gtk.STOCK_OK, Gtk.ResponseType.OK)
+
+        def show(text):
+            view.set_markup(text)
+            view.set_size_request(400, 1)
+            win.resize(400, 1)
+            win.move(950, 30)
+            win.show_all()
+            response = win.run()
+            if response == Gtk.ResponseType.OK:
+                pass
+
+            win.hide()
+
+        def hide():
+            win.hide()
 
         ### Bind to object
-        self.win = win
-        self.menu = menu
-        self.view = view
+        self.hide = hide
+        self.show = show
         self.reload = False
 
         ### Start GTK loop
@@ -71,7 +80,7 @@ class Gui:
         server.daemon = True
         server.start()
 
-        signal.signal(signal.SIGINT, lambda s, f: self.quit)
+        signal.signal(signal.SIGINT, lambda s, f: self.pub_quit())
         try:
             Gtk.main()
         finally:
@@ -98,11 +107,6 @@ class Gui:
                 conn.send('ok'.encode())
         conn.close()
 
-    def show(self, text):
-        self.view.set_markup(text)
-        self.win.resize(400, 50)
-        self.win.show_all()
-
     def pub_quit(self):
         Gtk.main_quit()
 
@@ -114,21 +118,22 @@ class Gui:
         clip = Gtk.Clipboard.get(Gdk.SELECTION_PRIMARY)
         text = clip.wait_for_text()
         if not (text and text.strip()):
-            self.show('<b>WARN</b>: Please select the text first')
+            self.show('<b>Warning</b>: Please select the text first')
             return
 
             text = text.replace('\t', ' ').replace('\r', ' ')
 
+        #self.show('<b>Loading...</b>')
         for lang in ['ru', 'en']:
             ok, result = call_google(text, to=lang)
             if ok and result['src_lang'] != lang:
                 self.show(result['text'])
                 return
             else:
-                self.show('<b>ERROR</b>%s' % html.escape(str(result)))
+                self.show('<b>Error</b>%s' % html.escape(str(result)))
 
     def pub_hide(self):
-        self.win.hide()
+        self.hide()
 
     def pub_ping(self):
         pass
