@@ -6,7 +6,7 @@ import signal
 import socket
 import sys
 from urllib.error import URLError
-from urllib.parse import urlencode
+from urllib.parse import urlencode, quote
 from urllib.request import build_opener
 from threading import Thread
 
@@ -25,17 +25,13 @@ class Gui:
         start.set_label('Translate')
         start.connect('activate', lambda w: self.pub_fetch())
 
-        stop = Gtk.ImageMenuItem.new_from_stock(Gtk.STOCK_MEDIA_STOP, None)
-        stop.set_label('Hide translation window')
-        stop.connect('activate', lambda w: self.pub_hide())
-
         separator = Gtk.SeparatorMenuItem()
 
         quit = Gtk.ImageMenuItem.new_from_stock(Gtk.STOCK_QUIT, None)
         quit.connect('activate', lambda w: self.pub_quit())
 
         menu = Gtk.Menu()
-        for i in [start, stop, separator, quit]:
+        for i in [start, separator, quit]:
             menu.append(i)
 
         menu.show_all()
@@ -49,23 +45,37 @@ class Gui:
         ))
 
         ### Window
-        win = Gtk.Dialog(accept_focus=False)
         view = Gtk.Label(wrap=True, selectable=True)
-        box = win.get_content_area()
-        box.add(view)
-        win.add_buttons(Gtk.STOCK_OK, Gtk.ResponseType.OK)
 
-        def show(text):
+        ok = Gtk.Button(label='Ok')
+        ok.connect('clicked', lambda w: hide())
+        link = Gtk.LinkButton('http://translate.google.com/')
+        link.set_label('Open in browser')
+        bbox = Gtk.ButtonBox(spacing=6)
+        bbox.set_halign(Gtk.Align.CENTER)
+        bbox.pack_start(link, True, True, 0)
+        bbox.pack_start(ok, True, True, 0)
+
+        box = Gtk.VBox(spacing=0)
+        box.pack_start(view, True, True, 5)
+        box.pack_start(bbox, True, True, 5)
+
+        win = Gtk.Window(
+            skip_taskbar_hint=True, accept_focus=False,
+            type=Gtk.WindowType.POPUP
+        )
+        win.set_keep_above(True)
+        win.add(box)
+        win.move(950, 30)
+
+        def show(text, url=None):
+            if url:
+                link.set_uri(url)
             view.set_markup(text)
             view.set_size_request(400, 1)
-            win.resize(400, 1)
+            win.resize(400, 50)
             win.move(950, 30)
             win.show_all()
-            response = win.run()
-            if response == Gtk.ResponseType.OK:
-                pass
-
-            win.hide()
 
         def hide():
             win.hide()
@@ -123,11 +133,11 @@ class Gui:
 
             text = text.replace('\t', ' ').replace('\r', ' ')
 
-        #self.show('<b>Loading...</b>')
+        self.show('<b>Loading...</b>')
         for lang in ['ru', 'en']:
             ok, result = call_google(text, to=lang)
             if ok and result['src_lang'] != lang:
-                self.show(result['text'])
+                self.show(result['text'], url=result['url'])
                 return
             else:
                 self.show('<b>Error</b>%s' % html.escape(str(result)))
@@ -157,8 +167,10 @@ def call_google(text, to):
     except URLError as e:
         return False, e
     data = json.loads(f.read().decode())
-    text = '\n'.join(r['trans'] for r in data['sentences'])
-    return True, {'src_lang': data['src'], 'text': text}
+
+    url_ = 'http://translate.google.com/#auto/%s/%s' % (to, quote(text))
+    text_ = '\n'.join(r['trans'] for r in data['sentences'])
+    return True, {'src_lang': data['src'], 'text': text_, 'url': url_}
 
 
 def send_action(sockfile, action):
