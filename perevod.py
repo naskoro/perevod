@@ -33,6 +33,13 @@ def win_handler(win):
 
 class Gui:
     def __init__(self, config):
+        if os.path.exists(config['socket']):
+            if send_action(config['socket'], 'ping') == 'ok':
+                print('Another `perevod` instance already run.')
+                raise SystemExit(1)
+            else:
+                os.remove(config['socket'])
+
         ### Menu
         start = Gtk.ImageMenuItem.new_from_stock(Gtk.STOCK_MEDIA_PLAY, None)
         start.set_label('Translate')
@@ -232,6 +239,7 @@ def get_config():
 
 
 def process_args(args):
+    config = get_config()
     parser = argparse.ArgumentParser()
     cmds = parser.add_subparsers(title='commands')
 
@@ -244,22 +252,13 @@ def process_args(args):
 
     cmd('call', help='call a specific action')\
         .arg('name', choices=get_actions(), help='select action')\
-        .exe(lambda a: print(send_action(sockfile, a.name)))
+        .exe(lambda a: print(send_action(config['socket'], a.name)))
 
     cmd('config', help='print default config')\
         .exe(lambda a: print(DEFAULT_CONFIG))
 
     args = parser.parse_args(args)
-    config = get_config()
-    sockfile = config['socket']
     if not hasattr(args, 'cmd'):
-        if os.path.exists(sockfile):
-            if send_action(sockfile, 'ping') == 'ok':
-                print('Another `perevod` instance already run.')
-                raise SystemExit(1)
-            else:
-                os.remove(sockfile)
-
         Gui(config)
 
     elif hasattr(args, 'exe'):
