@@ -18,19 +18,16 @@ GObject.threads_init()
 
 RELOAD = 100
 DEFAULT_CONFIG = '''
-def get(conf_dir):
-    c = dict(
-        socket=conf_dir + 'default.sock',
-        langs=('ru', 'en'),  # pair of languages
-        win_hook=win_hook
-    )
-    return c
-
-
 def win_hook(win):
     # Update window after creation
     win.resize(400, 50)
     win.move(win.get_screen().get_width() - 410, 30)
+
+
+config = dict(
+    langs=('ru', 'en'),  # pair of languages
+    win_hook=win_hook
+)
 '''.strip()
 
 
@@ -238,7 +235,9 @@ def get_config():
 
     loader = SourceFileLoader('config', conf_path)
     conf = loader.load_module('config')
-    conf = conf.get(conf_dir + os.path.sep)
+    conf = conf.config
+
+    conf['socket'] = '/tmp/perevod-%s' % os.environ.get('XDG_SESSION_ID', 0)
     conf = namedtuple('Conf', conf.keys())(**conf)
     return conf
 
