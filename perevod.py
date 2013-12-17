@@ -19,10 +19,11 @@ GObject.threads_init()
 RELOAD = 100
 DEFAULT_CONFIG = '''
 def get(conf_dir):
-    c = {}
-    c['socket'] = '%s/default.sock' % (conf_dir)
-    c['langs'] = ('ru', 'en')
-    c['win_hook'] = win_hook
+    c = dict(
+        socket=conf_dir + 'default.sock',
+        langs=('ru', 'en'),
+        win_hook=win_hook
+    )
     return c
 
 
@@ -82,9 +83,6 @@ class Gui:
         box = Gtk.VBox(spacing=0)
         box.pack_start(view, True, True, 5)
         box.pack_start(bbox, True, True, 5)
-        box.connect('key-press-event', lambda w, e: (
-            e.keyval == Gdk.KEY_Return and hide()
-        ))
 
         win = Gtk.Window(
             title='Translate selection',
@@ -93,6 +91,9 @@ class Gui:
             has_resize_grip=False
         )
         win.set_keep_above(True)
+        win.connect('key-press-event', lambda w, e: (
+            e.keyval == Gdk.KEY_Return and hide()
+        ))
         win.add(box)
 
         def show(text, url=None):
@@ -237,7 +238,7 @@ def get_config():
 
     loader = SourceFileLoader('config', conf_path)
     conf = loader.load_module('config')
-    conf = conf.get(conf_dir)
+    conf = conf.get(conf_dir + os.path.sep)
     conf = namedtuple('Conf', conf.keys())(**conf)
     return conf
 
