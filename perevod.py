@@ -5,6 +5,7 @@ import os
 import signal
 import socket
 import sys
+from collections import namedtuple
 from importlib.machinery import SourceFileLoader
 from threading import Thread
 from urllib.error import URLError
@@ -21,24 +22,25 @@ def get(conf_dir):
     c = {}
     c['socket'] = '%s/default.sock' % (conf_dir)
     c['langs'] = ('ru', 'en')
-    c['win_handler'] = win_handler
+    c['win_hook'] = win_hook
     return c
 
 
-def win_handler(win):
+def win_hook(win):
+    # Update window after creation
     win.resize(400, 50)
     win.move(win.get_screen().get_width() - 410, 30)
 '''.strip()
 
 
 class Gui:
-    def __init__(self, config):
-        if os.path.exists(config['socket']):
-            if send_action(config['socket'], 'ping') == 'ok':
+    def __init__(self, conf):
+        if os.path.exists(conf.socket):
+            if send_action(conf.socket, 'ping') == 'ok':
                 print('Another `perevod` instance already run.')
                 raise SystemExit(1)
             else:
-                os.remove(config['socket'])
+                os.remove(conf.socket)
 
         ### Menu
         start = Gtk.ImageMenuItem.new_from_stock(Gtk.STOCK_MEDIA_PLAY, None)
@@ -97,7 +99,7 @@ class Gui:
             if url:
                 link.set_uri(url)
             view.set_markup(text)
-            config['win_handler'](win)
+            conf.win_hook(win)
             view.set_size_request(win.get_size()[0], 1)
             win.show_all()
 
@@ -105,13 +107,13 @@ class Gui:
             win.hide()
 
         ### Bind to object
-        self.config = config
+        self.conf = conf
         self.reload = False
         self.hide = hide
         self.show = show
 
         ### Start GTK loop
-        server = Thread(target=self.serve, args=(config['socket'],))
+        server = Thread(target=self.serve, args=(conf.socket,))
         server.daemon = True
         server.start()
 
@@ -159,7 +161,7 @@ class Gui:
             text = text.replace('\t', ' ').replace('\r', ' ')
 
         self.show('<b>Loading...</b>')
-        for lang in self.config['langs']:
+        for lang in self.conf.langs:
             ok, result = call_google(text, to=lang)
             if ok and result['src_lang'] != lang:
                 self.show(result['text'], url=result['url'])
@@ -234,13 +236,14 @@ def get_config():
             f.write(DEFAULT_CONFIG.encode())
 
     loader = SourceFileLoader('config', conf_path)
-    config = loader.load_module('config')
-    config = config.get(conf_dir)
-    return config
+    conf = loader.load_module('config')
+    conf = conf.get(conf_dir)
+    conf = namedtuple('Conf', conf.keys())(**conf)
+    return conf
 
 
 def process_args(args):
-    config = get_config()
+    conf = get_config()
     parser = argparse.ArgumentParser()
     cmds = parser.add_subparsers(title='commands')
 
@@ -253,14 +256,14 @@ def process_args(args):
 
     cmd('call', help='call a specific action')\
         .arg('name', choices=get_actions(), help='select action')\
-        .exe(lambda a: print(send_action(config['socket'], a.name)))
+        .exe(lambda a: print(send_action(conf.socket, a.name)))
 
-    cmd('config', help='print default config')\
+    cmd('conf', help='print default config')\
         .exe(lambda a: print(DEFAULT_CONFIG))
 
     args = parser.parse_args(args)
     if not hasattr(args, 'cmd'):
-        Gui(config)
+        Gui(conf)
 
     elif hasattr(args, 'exe'):
         args.exe(args)
