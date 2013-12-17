@@ -128,9 +128,9 @@ class Gui:
             else:
                 print('Perevod closed.')
 
-    def serve(self, sockfile):
+    def serve(self, address):
         s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        s.bind(sockfile)
+        s.bind(address)
         s.listen(1)
 
         while True:
@@ -201,10 +201,10 @@ def call_google(text, to):
     return True, {'src_lang': data['src'], 'text': text_, 'url': url_}
 
 
-def send_action(sockfile, action):
+def send_action(address, action):
     s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     try:
-        s.connect(sockfile)
+        s.connect(address)
     except socket.error:
         return None
     s.send(action.encode())
