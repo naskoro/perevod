@@ -21,7 +21,7 @@ DEFAULT_CONFIG = '''
 def get(conf_dir):
     c = dict(
         socket=conf_dir + 'default.sock',
-        langs=('ru', 'en'),
+        langs=('ru', 'en'),  # pair of languages
         win_hook=win_hook
     )
     return c
