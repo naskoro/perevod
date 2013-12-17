@@ -1,4 +1,5 @@
 import argparse
+import hashlib
 import html
 import json
 import os
@@ -236,9 +237,10 @@ def get_config():
     conf = loader.load_module('config')
     conf = conf.config
 
-    conf['socket'] = '/tmp/perevod-%s' % os.environ.get('XDG_SESSION_ID', 0)
-    conf = namedtuple('Conf', conf.keys())(**conf)
-    return conf
+    sid = '='.join([conf_dir, os.environ.get('XDG_SESSION_ID')])
+    sid = hashlib.md5(sid.encode()).hexdigest()
+    conf['socket'] = '/tmp/perevod-%s' % sid
+    return namedtuple('Conf', conf.keys())(**conf)
 
 
 def process_args(args):
