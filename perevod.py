@@ -20,6 +20,7 @@ DEFAULT_CONFIG = '''
 def get(conf_dir):
     c = {}
     c['socket'] = '%s/default.sock' % (conf_dir)
+    c['langs'] = ('ru', 'en')
     c['win_handler'] = win_handler
     return c
 
@@ -150,7 +151,7 @@ class Gui:
             text = text.replace('\t', ' ').replace('\r', ' ')
 
         self.show('<b>Loading...</b>')
-        for lang in ['ru', 'en']:
+        for lang in self.config['langs']:
             ok, result = call_google(text, to=lang)
             if ok and result['src_lang'] != lang:
                 self.show(result['text'], url=result['url'])
