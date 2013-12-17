@@ -19,14 +19,13 @@ GObject.threads_init()
 RELOAD = 100
 DEFAULT_CONFIG = '''
 def win_hook(win):
-    # Update window after creation
     win.resize(400, 50)
     win.move(win.get_screen().get_width() - 410, 30)
 
 
 config = dict(
     langs=('ru', 'en'),  # pair of languages
-    win_hook=win_hook
+    win_hook=win_hook  # update window after creation
 )
 '''.strip()
 
