@@ -71,6 +71,7 @@ class Gui:
         ok.connect('clicked', lambda w: hide())
         link = Gtk.LinkButton('http://translate.google.com/')
         link.set_label('Open in browser')
+        link.connect('clicked', lambda b: hide())
         bbox = Gtk.ButtonBox(spacing=6)
         bbox.set_halign(Gtk.Align.CENTER)
         bbox.pack_start(link, True, True, 0)
