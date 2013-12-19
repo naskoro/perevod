@@ -69,6 +69,7 @@ class Gui:
 
         ok = Gtk.Button(label='Ok')
         ok.connect('clicked', lambda w: hide())
+        ok.set_tooltip_text('Press "Enter" or "Esc"')
         link = Gtk.LinkButton('http://translate.google.com/')
         link.set_label('Open in browser')
         link.connect('clicked', lambda b: hide())
@@ -89,7 +90,7 @@ class Gui:
         )
         win.set_keep_above(True)
         win.connect('key-press-event', lambda w, e: (
-            e.keyval == Gdk.KEY_Return and hide()
+            e.keyval in (Gdk.KEY_Return, Gdk.KEY_Escape) and hide()
         ))
         win.add(box)
 
