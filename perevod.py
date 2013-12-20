@@ -8,9 +8,7 @@ import socket
 import sys
 from collections import namedtuple
 from threading import Thread
-from urllib.error import URLError
-from urllib.parse import urlencode, quote
-from urllib.request import build_opener
+from urllib import request, parse as urlparse
 
 from gi.repository import Gtk, Gdk, GObject
 
@@ -164,7 +162,7 @@ class Gui:
                 self.show(result['text'], url=result['url'])
                 return
             else:
-                self.show('<b>Error</b>%s' % html.escape(str(result)))
+                self.show('<b>(Error)</b> %s' % html.escape(str(result)))
 
     def pub_hide(self):
         self.hide()
@@ -174,7 +172,10 @@ class Gui:
 
 
 def call_google(text, to):
-    url = 'http://translate.google.ru/translate_a/t'
+    base_url = 'http://translate.google.ru'
+
+    opener = request.build_opener()
+    opener.addheaders = [('User-agent', 'Mozilla/5.0')]
     params = {
         'client': 'x',
         'sl': 'auto',
@@ -183,16 +184,14 @@ def call_google(text, to):
         'oe': 'utf8',
         'text': text
     }
-
-    opener = build_opener()
-    opener.addheaders = [('User-agent', 'Mozilla/5.0')]
+    params = urlparse.urlencode(params)
     try:
-        f = opener.open('%s?%s' % (url, urlencode(params)))
-    except URLError as e:
+        f = opener.open('%s/translate_a/t?%s' % (base_url, params))
+    except IOError as e:
         return False, e
     data = json.loads(f.read().decode())
 
-    url_ = 'http://translate.google.com/#auto/%s/%s' % (to, quote(text))
+    url_ = '%s/#auto/%s/%s' % (base_url, to, urlparse.quote(text))
     text_ = '\n'.join(r['trans'] for r in data['sentences'])
     return True, {'src_lang': data['src'], 'text': text_, 'url': url_}
 
