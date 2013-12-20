@@ -17,6 +17,7 @@ from gi.repository import Gtk, Gdk, GObject
 
 GObject.threads_init()
 
+OK = 'OK'
 RELOAD = 100
 DEFAULT_CONFIG = '''
 def win_hook(win):
@@ -34,7 +35,7 @@ config = dict(
 class Gui:
     def __init__(self, conf):
         if os.path.exists(conf.socket):
-            if send_action(conf.socket, 'ping') == 'ok':
+            if send_action(conf.socket, 'ping') == OK:
                 print('Another `perevod` instance already run.')
                 raise SystemExit(1)
             else:
@@ -140,7 +141,7 @@ class Gui:
                 action = data.decode()
                 action = getattr(self, 'pub_' + action)
                 GObject.idle_add(action)
-                conn.send('ok'.encode())
+                conn.send(OK.encode())
         conn.close()
 
     def pub_quit(self):
@@ -204,13 +205,13 @@ def send_action(address, action):
     try:
         s.connect(address)
     except socket.error:
-        return None
+        return 'Error. No answer'
     s.send(action.encode())
     data = s.recv(1024)
     s.close()
     if data:
         return data.decode()
-    return True
+    return 'Error. Empty answer'
 
 
 def get_actions():
