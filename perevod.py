@@ -7,7 +7,6 @@ import signal
 import socket
 import sys
 from collections import namedtuple
-from importlib.machinery import SourceFileLoader
 from threading import Thread
 from urllib.error import URLError
 from urllib.parse import urlencode, quote
@@ -20,15 +19,13 @@ GObject.threads_init()
 OK = 'OK'
 RELOAD = 100
 DEFAULT_CONFIG = '''
+# Pair of languages
+langs=('ru', 'en')
+
+# Update window after creation
 def win_hook(win):
     win.resize(400, 50)
     win.move(win.get_screen().get_width() - 410, 30)
-
-
-config = dict(
-    langs=('ru', 'en'),  # pair of languages
-    win_hook=win_hook  # update window after creation
-)
 '''.strip()
 
 
@@ -231,13 +228,12 @@ def get_config():
         os.mkdir(conf_dir)
 
     conf_path = os.path.join(conf_dir, 'config.py')
-    if not os.path.exists(conf_path):
-        with open(conf_path, 'wb') as f:
-            f.write(DEFAULT_CONFIG.encode())
-
-    loader = SourceFileLoader('config', conf_path)
-    conf = loader.load_module('config')
-    conf = conf.config
+    conf = {}
+    exec(DEFAULT_CONFIG, None, conf)
+    if os.path.exists(conf_path):
+        with open(conf_path, 'rb') as f:
+            source = f.read()
+        exec(source, None, conf)
 
     sid = '='.join([conf_dir, os.environ.get('XDG_SESSION_ID')])
     sid = hashlib.md5(sid.encode()).hexdigest()
