@@ -18,7 +18,8 @@ OK = 'OK'
 RELOAD = 100
 DEFAULT_CONFIG = '''
 # Pair of languages
-langs=('ru', 'en')
+langs = ('ru', 'en')
+
 
 # Update window after creation
 def win_hook(win):
