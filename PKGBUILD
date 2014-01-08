@@ -3,7 +3,7 @@
 pkgname=perevod-git
 pkgver=0.0.0
 pkgrel=3
-pkgdesc='Translate selection (lightweight GTK+)'
+pkgdesc='Lightweight selection translator (GTK+)'
 arch=('any')
 url='https://github.com/naspeh/perevod'
 license=('BSD')

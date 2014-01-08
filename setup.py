@@ -11,7 +11,7 @@ with open('README.rst', 'br') as f:
 
 setup(
     name='perevod',
-    description='Translate selection (lightweight GTK+)',
+    description='Lightweight selection translator (GTK+)',
     long_description=desc,
     license='BSD',
     version='beta',
