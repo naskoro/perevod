@@ -1,11 +1,19 @@
-Lightweight selection translator (GTK+)
----------------------------------------
-**In development.**
+**Perevod** is lightweight selection translator (GTK+)
 
-Support translate selection via google.
+*It is early in development.*
 
-Arch Linux
-==========
+Features:
+ - translate selection via Google Translate
+
+Installation
+------------
+Requires ``Python>=3.3`` and ``GTK3``.
+
 ::
+
+    $ pip install https://github.com/naspeh/perevod/archive/master.zip
+
+
+**Arch Linux**::
 
     $ yaourt -S perevod-git
