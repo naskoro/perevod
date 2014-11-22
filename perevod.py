@@ -94,7 +94,7 @@ class Gui:
         def show(text, url=None):
             if url:
                 link.set_uri(url)
-            view.set_markup(text)
+            view.set_markup(html.escape(text))
             conf.win_hook(win)
             view.set_size_request(win.get_size()[0], 1)
             win.show_all()
