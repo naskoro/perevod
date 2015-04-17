@@ -1,14 +1,12 @@
 import argparse
 import hashlib
-import html
-import json
 import os
 import signal
 import socket
+import subprocess
 import sys
 from collections import namedtuple
 from threading import Thread
-from urllib import request, parse as urlparse
 
 from gi.repository import Gtk, Gdk, GObject
 
@@ -17,14 +15,20 @@ GObject.threads_init()
 OK = 'OK'
 RELOAD = 100
 DEFAULT_CONFIG = '''
-# Pair of languages
-langs = ('ru', 'en')
-
-
-# Update window after creation
-def win_hook(win):
-    win.resize(400, 50)
-    win.move(win.get_screen().get_width() - 410, 30)
+lang = 'ru'
+win_size = "830, 400"
+win_move = "535, 365"
+cmd = \'\'\'
+    chromium --app="
+        data:text/html,
+        <html><body>
+        <script>
+            window.resizeTo({conf.win_size});
+            window.moveTo({conf.win_move});
+            window.location='{url}';
+        </script>
+        </body></html>"
+\'\'\'
 '''.strip()
 
 
@@ -37,7 +41,7 @@ class Gui:
             else:
                 os.remove(conf.socket)
 
-        ### Menu
+        # -- Menu
         start = Gtk.ImageMenuItem.new_from_stock(Gtk.STOCK_MEDIA_PLAY, None)
         start.set_label('Translate')
         start.connect('activate', lambda w: self.pub_fetch())
@@ -53,7 +57,7 @@ class Gui:
 
         menu.show_all()
 
-        ### Tray
+        # -- Tray
         tray = Gtk.StatusIcon()
         tray.set_from_stock(Gtk.STOCK_SELECT_FONT)
         tray.connect('activate', lambda w: self.pub_fetch())
@@ -61,7 +65,7 @@ class Gui:
             menu.popup(None, None, icon.position_menu, icon, button, time)
         ))
 
-        ### Window
+        # -- Window
         view = Gtk.Label(wrap=True, selectable=True)
 
         ok = Gtk.Button(label='Ok')
@@ -91,24 +95,15 @@ class Gui:
         ))
         win.add(box)
 
-        def show(text, url=None):
-            if url:
-                link.set_uri(url)
-            view.set_markup(html.escape(text))
-            conf.win_hook(win)
-            view.set_size_request(win.get_size()[0], 1)
-            win.show_all()
-
         def hide():
             win.hide()
 
-        ### Bind to object
+        # -- Bind to object
         self.conf = conf
         self.reload = False
         self.hide = hide
-        self.show = show
 
-        ### Start GTK loop
+        # -- Start GTK loop
         server = Thread(target=self.serve, args=(conf.socket,))
         server.daemon = True
         server.start()
@@ -151,50 +146,21 @@ class Gui:
         clip = Gtk.Clipboard.get(Gdk.SELECTION_PRIMARY)
         text = clip.wait_for_text()
         if not (text and text.strip()):
-            self.show('<b>Warning</b>: Please select the text first')
+            cmd = 'notify-send "Please select the text first"'
+            subprocess.call(cmd, shell=True)
             return
 
-            text = text.replace('\t', ' ').replace('\r', ' ')
-
-        self.show('<b>Loading...</b>')
-        for lang in self.conf.langs:
-            ok, result = call_google(text, to=lang)
-            if ok and result['src_lang'] != lang:
-                self.show(result['text'], url=result['url'])
-                return
-            else:
-                self.show('<b>(Error)</b> %s' % html.escape(str(result)))
+        text = text.replace('\'', "\\'")
+        # url = 'http://translate.google.com/m?hl=auth&tl=ru&q=%s' % text
+        url = 'http://translate.google.com/#auto/ru/%s' % text
+        cmd = self.conf.cmd.format(url=url, conf=self.conf) 
+        subprocess.call(cmd, shell=True)
 
     def pub_hide(self):
         self.hide()
 
     def pub_ping(self):
         pass
-
-
-def call_google(text, to):
-    base_url = 'http://translate.google.ru'
-
-    opener = request.build_opener()
-    opener.addheaders = [('User-agent', 'Mozilla/5.0')]
-    params = {
-        'client': 'x',
-        'sl': 'auto',
-        'tl': to,
-        'io': 'utf8',
-        'oe': 'utf8',
-        'text': text
-    }
-    params = urlparse.urlencode(params)
-    try:
-        f = opener.open('%s/translate_a/t?%s' % (base_url, params))
-    except IOError as e:
-        return False, e
-    data = json.loads(f.read().decode())
-
-    url_ = '%s/#auto/%s/%s' % (base_url, to, urlparse.quote(text))
-    text_ = '\n'.join(r['trans'] for r in data['sentences'])
-    return True, {'src_lang': data['src'], 'text': text_, 'url': url_}
 
 
 def send_action(address, action):
