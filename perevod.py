@@ -16,7 +16,7 @@ GObject.threads_init()
 OK = 'OK'
 RELOAD = 100
 DEFAULT_CONFIG = """
-lang = 'ru'
+lang = 'auto'
 win_size = "830, 400"
 win_move = "535, 365"
 cmd = '''
@@ -146,12 +146,15 @@ class Gui:
     def pub_fetch(self):
         clip = Gtk.Clipboard.get(Gdk.SELECTION_PRIMARY)
         text = clip.wait_for_text().strip()
-        if not (text and text.strip()):
+        if not text:
             cmd = 'notify-send "Please select the text first"'
             subprocess.call(cmd, shell=True)
             return
 
-        url = 'http://translate.google.com/#auto/ru/%s' % text
+        url = (
+            'http://translate.google.com/#auto/{lang}/{text}'
+            .format(text=text, lang=self.conf.lang)
+        )
         url = json.dumps(url)
         cmd = self.conf.cmd.format(url=url, conf=self.conf)
         subprocess.call(cmd, shell=True)
