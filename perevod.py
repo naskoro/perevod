@@ -1,5 +1,6 @@
 import argparse
 import hashlib
+import json
 import os
 import signal
 import socket
@@ -14,22 +15,22 @@ GObject.threads_init()
 
 OK = 'OK'
 RELOAD = 100
-DEFAULT_CONFIG = '''
+DEFAULT_CONFIG = """
 lang = 'ru'
 win_size = "830, 400"
 win_move = "535, 365"
-cmd = \'\'\'
-    chromium --app="
+cmd = '''
+    chromium --app='
         data:text/html,
         <html><body>
         <script>
             window.resizeTo({conf.win_size});
             window.moveTo({conf.win_move});
-            window.location='{url}';
+            window.location={url};
         </script>
-        </body></html>"
-\'\'\'
-'''.strip()
+        </body></html>'
+'''
+""".strip()
 
 
 class Gui:
@@ -144,16 +145,15 @@ class Gui:
 
     def pub_fetch(self):
         clip = Gtk.Clipboard.get(Gdk.SELECTION_PRIMARY)
-        text = clip.wait_for_text()
+        text = clip.wait_for_text().strip()
         if not (text and text.strip()):
             cmd = 'notify-send "Please select the text first"'
             subprocess.call(cmd, shell=True)
             return
 
-        text = text.replace('\'', "\\'")
-        # url = 'http://translate.google.com/m?hl=auth&tl=ru&q=%s' % text
         url = 'http://translate.google.com/#auto/ru/%s' % text
-        cmd = self.conf.cmd.format(url=url, conf=self.conf) 
+        url = json.dumps(url)
+        cmd = self.conf.cmd.format(url=url, conf=self.conf)
         subprocess.call(cmd, shell=True)
 
     def pub_hide(self):
