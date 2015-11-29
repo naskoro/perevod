@@ -9,7 +9,11 @@ import sys
 from collections import namedtuple
 from threading import Thread
 
+import gi
+gi.require_version('Gtk', '3.0')  # noqa
+
 from gi.repository import Gtk, Gdk, GObject
+
 
 GObject.threads_init()
 
@@ -151,11 +155,11 @@ class Gui:
             subprocess.call(cmd, shell=True)
             return
 
-        url = (
+        text = text.replace("'", '´')
+        url = json.dumps(
             'http://translate.google.com/#auto/{lang}/{text}'
             .format(text=text, lang=self.conf.lang)
         )
-        url = json.dumps(url)
         cmd = self.conf.cmd.format(url=url, conf=self.conf)
         subprocess.call(cmd, shell=True)
 
